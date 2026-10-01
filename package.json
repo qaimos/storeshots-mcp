@@ -1,0 +1,48 @@
+{
+  "name": "storeshots-api-mcp",
+  "version": "0.1.1",
+  "description": "MCP server for StoreShots: turn raw app screenshots into App Store & Google Play marketing screenshots via the hosted StoreShots API (no Chrome needed).",
+  "mcpName": "uk.co.qaimos.storeshots/storeshots",
+  "type": "module",
+  "bin": {
+    "storeshots-api-mcp": "src/index.js"
+  },
+  "main": "src/index.js",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node scripts/test-local.mjs",
+    "inspect": "npx @modelcontextprotocol/inspector node src/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "app-store",
+    "google-play",
+    "screenshots",
+    "aso",
+    "marketing",
+    "storeshots"
+  ],
+  "homepage": "https://storeshots.qaimos.co.uk/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qaimos/storeshots-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qaimos/storeshots-mcp/issues"
+  },
+  "author": "StoreShots (qaimos.co.uk)",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^4.6.5"
+  }
+}

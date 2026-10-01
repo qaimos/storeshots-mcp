@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "uk.co.qaimos.storeshots/storeshots",
+  "title": "StoreShots",
+  "description": "Turn raw app screenshots into App Store and Google Play marketing screenshots.",
+  "version": "0.1.1",
+  "websiteUrl": "https://storeshots.qaimos.co.uk/",
+  "repository": {
+    "url": "https://github.com/qaimos/storeshots-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "storeshots-api-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "STORESHOTS_API_KEY",
+          "description": "Your StoreShots API key (free key at https://storeshots.qaimos.co.uk/account.html)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "STORESHOTS_API_URL",
+          "description": "API endpoint (default https://storeshots.qaimos.co.uk/api.php)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "STORESHOTS_OUTPUT_DIR",
+          "description": "Default download folder for get_output (default ~/StoreShots)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

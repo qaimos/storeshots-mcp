@@ -1,0 +1,36 @@
+# Smithery configuration for a local (stdio) server launched with npx.
+# Note: Smithery's current publishing flow takes either a public Streamable HTTP URL or an MCPB bundle
+# (`smithery mcp publish ./server.mcpb -n <org>/<name>`). This file uses the classic stdio
+# `startCommand` format, which some tools still read. It describes how to launch the server and which config it needs.
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - storeshotsApiKey
+    properties:
+      storeshotsApiKey:
+        type: string
+        title: StoreShots API key
+        description: Your StoreShots API key (ss_...). Get a free key at https://storeshots.qaimos.co.uk/account.html
+      storeshotsApiUrl:
+        type: string
+        title: API URL
+        description: StoreShots API endpoint.
+        default: https://storeshots.qaimos.co.uk/api.php
+      storeshotsOutputDir:
+        type: string
+        title: Output directory
+        description: Default download folder for get_output (default ~/StoreShots).
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', 'storeshots-api-mcp'],
+      env: Object.assign(
+        { STORESHOTS_API_KEY: config.storeshotsApiKey },
+        config.storeshotsApiUrl ? { STORESHOTS_API_URL: config.storeshotsApiUrl } : {},
+        config.storeshotsOutputDir ? { STORESHOTS_OUTPUT_DIR: config.storeshotsOutputDir } : {}
+      )
+    })
+  exampleConfig:
+    storeshotsApiKey: ss_your_key_here
