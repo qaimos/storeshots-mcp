@@ -17,7 +17,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 const API_URL = (process.env.STORESHOTS_API_URL || 'https://storeshots.qaimos.co.uk/api.php').trim();
 const API_KEY = (process.env.STORESHOTS_API_KEY || '').trim();
 const OUTPUT_DIR = expandHome(process.env.STORESHOTS_OUTPUT_DIR || path.join(os.homedir(), 'StoreShots'));
@@ -130,14 +130,18 @@ export function createServer() {
 
   server.registerTool('list_styles', {
     title: 'List StoreShots styles',
-    description: 'List the curated screenshot styles (ids for generate_screenshots.style) with colours and layouts.',
+    description: 'List the curated visual styles (background colours, text colours and layout) with the ids accepted by generate_screenshots.style. ' +
+      'Call this before generate_screenshots to choose a look; use list_devices instead for device frames and output sizes. ' +
+      'Takes no parameters; read-only, fetched live from the StoreShots API and requires STORESHOTS_API_KEY.',
     inputSchema: {},
     annotations: { readOnlyHint: true, openWorldHint: true },
   }, guard(async () => json(await call('styles'))));
 
   server.registerTool('list_devices', {
     title: 'List devices and output sizes',
-    description: 'List device frames (iphone, iphone-duo, android, ipad) and store output targets (ios-6.9 1320x2868, ios-6.5 1242x2688, android-phone, ipad-13).',
+    description: 'List device frames (iphone, iphone-duo, android, ipad) and store output targets with pixel sizes (ios-6.9 1320x2868, ios-6.5 1242x2688, android-phone, ipad-13). ' +
+      'Call this before generate_screenshots to pick valid device and targets values; use list_styles instead for colours/layouts. ' +
+      'Takes no parameters; read-only, fetched live from the StoreShots API and requires STORESHOTS_API_KEY.',
     inputSchema: {},
     annotations: { readOnlyHint: true, openWorldHint: true },
   }, guard(async () => json(await call('devices'))));
@@ -146,22 +150,23 @@ export function createServer() {
     title: 'Generate store screenshots',
     description: 'Turn 1–5 raw app screenshots (local file paths or http(s) URLs) into framed App Store / Google Play marketing screenshots ' +
       'with headlines. One call = one set (all requested sizes) = 1 credit; free keys get 3 watermarked sets per month. ' +
-      'Returns a jobId; set download_to (or call get_output) to save the PNGs/ZIP locally.',
+      'Returns a jobId plus per-target file list; set download_to (or call get_output later) to save the PNGs/ZIP locally — outputs are kept on the server for 24h. ' +
+      'Call list_styles/list_devices first for valid ids. If free sets and credits are used up it returns an error: call get_balance, then buy_credits.',
     inputSchema: {
       screenshots: z.array(z.string().min(1)).min(1).max(5).describe('1–5 local image paths (absolute, ~ or relative to cwd), file:// or http(s) URLs. PNG/JPEG/WebP, ≤10 MB each. One slide per screenshot.'),
       style: z.enum(STYLES).optional().describe('Style id (default glow). See list_styles.'),
       device: z.enum(DEVICES).optional().describe('Device frame. Omit to use each target\'s default device.'),
       targets: z.array(z.enum(TARGETS)).min(1).optional().describe('Output sizes (default ios-6.9, ios-6.5, android-phone).'),
-      headlines: z.array(z.string().max(140)).max(5).optional().describe('Headline per slide, same order as screenshots.'),
-      captions: z.array(z.string().max(220)).max(5).optional().describe('Caption per slide, same order as screenshots.'),
-      appName: z.string().max(80).optional().describe('Used for file names.'),
+      headlines: z.array(z.string().max(140)).max(5).optional().describe('Headline per slide (≤140 chars), same order as screenshots. Missing entries are left blank; entries beyond the number of screenshots are ignored.'),
+      captions: z.array(z.string().max(220)).max(5).optional().describe('Smaller caption under each headline (≤220 chars), same order as screenshots. Missing entries blank; extras ignored.'),
+      appName: z.string().max(80).optional().describe('App name, used in output file names.'),
       theme: z.object({
         gradFrom: hex.optional(), gradTo: hex.optional(), bgColor: hex.optional(), bgMode: z.enum(['gradient', 'solid']).optional(),
         headlineColor: hex.optional(), captionColor: hex.optional(), frameColor: hex.optional(),
         textAlign: z.enum(['left', 'center', 'right']).optional(), screenFit: z.enum(['auto', 'cover', 'contain']).optional(),
-      }).optional().describe('Optional colour overrides.'),
-      download_to: z.string().optional().describe('If set, download the results into this local directory right away.'),
-      download_format: z.enum(['zip', 'png', 'both']).optional().describe('What to download when download_to is set (default zip).'),
+      }).optional().describe('Optional overrides on top of the style: gradFrom/gradTo (gradient), bgColor + bgMode (solid or gradient background), headlineColor, captionColor, frameColor (hex like #4f46e5), textAlign, screenFit (how the screenshot fills the device screen).'),
+      download_to: z.string().optional().describe('If set, download the results into this local directory right away (same as calling get_output). Existing files with the same names are overwritten.'),
+      download_format: z.enum(['zip', 'png', 'both']).optional().describe('What to download when download_to is set: zip = one ZIP of all sizes, png = individual PNGs in per-target subfolders, both = both (default zip).'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
   }, guard(async (a) => {
@@ -183,18 +188,22 @@ export function createServer() {
 
   server.registerTool('get_output', {
     title: 'Download generated screenshots',
-    description: 'Download a job\'s ZIP and/or individual PNGs to a local directory (default ~/StoreShots/<jobId>). Jobs expire after 24h.',
+    description: 'Download a finished job\'s ZIP and/or individual PNGs to a local directory (default ~/StoreShots/<jobId>, or STORESHOTS_OUTPUT_DIR/<jobId>). ' +
+      'Use after generate_screenshots when download_to was not set, or to download again in another format/folder; existing files with the same names are overwritten. ' +
+      'Returns the saved file paths and sizes. Jobs expire after 24h; an unknown or expired job_id returns an error (generate again).',
     inputSchema: {
-      job_id: z.string().regex(/^\d{8}-[0-9a-f]{10}$/, 'jobId like 20260929-a1b2c3d4e5'),
-      output_dir: z.string().optional().describe('Local directory to save into.'),
-      format: z.enum(['zip', 'png', 'both']).optional().describe('Default zip.'),
+      job_id: z.string().regex(/^\d{8}-[0-9a-f]{10}$/, 'jobId like 20260929-a1b2c3d4e5').describe('The jobId returned by generate_screenshots, e.g. 20260929-a1b2c3d4e5.'),
+      output_dir: z.string().optional().describe('Local directory to save into (absolute, ~ or relative; created if missing). Default ~/StoreShots/<jobId>.'),
+      format: z.enum(['zip', 'png', 'both']).optional().describe('zip = one ZIP of all sizes, png = individual PNGs in per-target subfolders, both = both. Default zip.'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
   }, guard(async (a) => json(await fetchOutput(a.job_id, a.output_dir, a.format || 'zip'))));
 
   server.registerTool('get_balance', {
     title: 'Credits and free-tier balance',
-    description: 'Show remaining paid credits, free generations left this month, and available credit packs.',
+    description: 'Show remaining paid credits, free generations left this month, and the available credit packs (ids and prices). ' +
+      'Call before generate_screenshots to check you have quota, and before buy_credits to get a valid pack id. ' +
+      'Takes no parameters; read-only live data that requires STORESHOTS_API_KEY.',
     inputSchema: {},
     annotations: { readOnlyHint: true, openWorldHint: true },
   }, guard(async () => {
@@ -204,7 +213,8 @@ export function createServer() {
 
   server.registerTool('buy_credits', {
     title: 'Get a payment link for credits',
-    description: 'Return the Stripe Payment Link for a credit pack, personalised for this API key (client_reference_id + prefilled email). Nothing is charged by this tool — give the link to the user to pay in their browser; credits are added automatically after payment.',
+    description: 'Return a Stripe Payment Link for a credit pack, personalised for this API key (client reference + prefilled email). Nothing is charged by this tool: give the link to the user to pay in their browser; credits are added automatically after payment, so confirm with get_balance afterwards. ' +
+      'Use when generate_screenshots fails for lack of credits or the user wants unwatermarked output. If it returns an error (e.g. an unknown pack id), get valid pack ids from get_balance.',
     inputSchema: { pack: z.string().min(1).describe('Pack id from get_balance (starter = 10 sets for $3, pro = 20 sets for $5).') },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
   }, guard(async (a) => json(await call('checkout', { method: 'POST', body: { pack: a.pack } }))));

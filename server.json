@@ -3,7 +3,7 @@
   "name": "uk.co.qaimos.storeshots/storeshots",
   "title": "StoreShots",
   "description": "Turn raw app screenshots into App Store and Google Play marketing screenshots.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "websiteUrl": "https://storeshots.qaimos.co.uk/",
   "repository": {
     "url": "https://github.com/qaimos/storeshots-mcp",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "storeshots-api-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       },

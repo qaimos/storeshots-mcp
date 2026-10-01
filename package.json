@@ -1,6 +1,6 @@
 {
   "name": "storeshots-api-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server for StoreShots: turn raw app screenshots into App Store & Google Play marketing screenshots via the hosted StoreShots API (no Chrome needed).",
   "mcpName": "uk.co.qaimos.storeshots/storeshots",
   "type": "module",
